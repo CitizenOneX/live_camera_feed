@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_blue_plus: ^1.32.11
+  logging: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -18,3 +19,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/frame_app.lua
+    - assets/initial_image.png

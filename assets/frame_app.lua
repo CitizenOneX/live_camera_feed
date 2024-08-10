@@ -1,7 +1,7 @@
 -- we store the data from the host quickly from the data handler interrupt
 -- and wait for the main loop to pick it up for processing/drawing
 -- app_data contains all camera settings settable from the UI
--- quality, exposure, metering mode, {zoom, ...?}
+-- quality, exposure, metering mode, ...
 local app_data = { streaming = false, quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0}
 local quality_values = {10, 25, 50, 100}
 local metering_values = {'SPOT', 'CENTER_WEIGHTED', 'AVERAGE'}
@@ -39,8 +39,7 @@ function cameraCaptureAndSend()
 				state_time = frame.time.utc()
 				state = 'WAIT'
 		elseif state == 'WAIT' then
-                -- TODO what happens when I start reading sooner than this?
-				if frame.time.utc() > state_time + 0.5 then
+				if frame.time.utc() > state_time + 0.275 then
 					state = 'SEND'
 				end
 		elseif state == 'SEND' then
@@ -69,9 +68,6 @@ end
 
 -- every time byte data arrives just extract the data payload from the message
 -- and save to the local app_data table so the main loop can pick it up and print it
--- format of [data] (a multi-line text string) is:
--- first digit will be 0x0a/0x0b non-final/final chunk of long text
--- followed by string bytes out to the mtu
 function data_handler(data)
     if string.byte(data, 1) == START_STREAM_FLAG then
         -- non-final chunk
@@ -90,12 +86,6 @@ function data_handler(data)
         app_data.shutter_limit = string.byte(data, 7) << 8 | string.byte(data, 8)
         app_data.gain_kp = string.byte(data, 9) / 10.0
         app_data.gain_limit = string.byte(data, 10)
-        print(app_data.auto_exp_gain_times)
-        print(app_data.exposure)
-        print(app_data.shutter_kp)
-        print(app_data.shutter_limit)
-        print(app_data.gain_kp)
-        print(app_data.gain_limit)
     end
 end
 

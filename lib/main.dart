@@ -21,6 +21,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   // Phone to Frame flags
   static const startStreamFlag = 0x0a;
   static const stopStreamFlag = 0x0b;
+  static const cameraSettingsFlag = 0x0d;
 
   // stream subscription to pull application data back from camera
   StreamSubscription<List<int>>? _dataResponseStream;
@@ -28,9 +29,15 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   // camera settings
   int _qualityIndex = 2;
   final List<double> _qualityValues = [10, 25, 50, 100];
-  double _exposure = 0.0; // -2.0 to 2.0
-  String _meteringMode = 'SPOT';
+  double _exposure = 0.0; // -2.0 <= val <= 2.0
+  int _meteringModeIndex = 0;
   final List<String> _meteringModeValues = ['SPOT', 'CENTER_WEIGHTED', 'AVERAGE'];
+  int _autoExpGainTimes = 0; // val >= 0; number of times auto exposure and gain algorithm will be run every 100ms
+  double _shutterKp = 0.1;  // val >= 0 (we offer 0.1 .. 0.5)
+  int _shutterLimit = 6000; // 4 < val < 16383
+  double _gainKp = 1.0;     // val >= 0 (we offer 1.0 .. 5.0)
+  int _gainLimit = 248;     // 0 <= val <= 248
+  bool _cameraSettingsChanged = true;
 
   // details for the live camera feed
   Image? _currentImage;
@@ -128,7 +135,11 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
       // Main loop on our side
       while (currentState == ApplicationState.running) {
-        // TODO check for updated camera settings and send to Frame
+        // check for updated camera settings and send to Frame
+        if (_cameraSettingsChanged) {
+          _cameraSettingsChanged = false;
+          await frame!.sendData(makeSettingsPayload());
+        }
 
         // yield so we're not running hot on the UI thread
         await Future.delayed(const Duration(milliseconds: 500));
@@ -163,10 +174,28 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     if (mounted) setState(() {});
   }
 
-  Future<void> sendBreak() async {
-    await frame!.sendBreakSignal();
-    currentState = ApplicationState.ready;
-    if (mounted) setState(() {});
+  /// Corresponding parser in frame_app.lua data_handler()
+  List<int> makeSettingsPayload() {
+    // exposure is a double in the range -2.0 to 2.0, so map that to an unsigned byte 0..255
+    // by multiplying by 64, adding 128 and truncating
+    int intExp;
+    if (_exposure >= 2.0) {
+      intExp = 255;
+    }
+    else if (_exposure <= -2.0) {
+      intExp = 0;
+    }
+    else {
+      intExp = ((_exposure * 64) + 128).floor();
+    }
+
+    int intShutKp = (_shutterKp * 10).toInt();
+    int intShutLimMsb = _shutterLimit >> 8;
+    int intShutLimLsb = _shutterLimit & 0xFF;
+    int intGainKp = (_gainKp * 10).toInt();
+
+    return [cameraSettingsFlag, _qualityIndex, _autoExpGainTimes, _meteringModeIndex,
+            intExp, intShutKp, intShutLimMsb, intShutLimLsb, intGainKp, _gainLimit];
   }
 
   @override
@@ -235,6 +264,42 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   onChanged: (double value) {
                     setState(() {
                       _qualityIndex = value.toInt();
+                      _cameraSettingsChanged = true;
+                    });
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Metering Mode'),
+                subtitle: DropdownButton<int>(
+                  value: _meteringModeIndex,
+                  onChanged: (int? newValue) {
+                    setState(() {
+                      _meteringModeIndex = newValue!;
+                      _cameraSettingsChanged = true;
+                    });
+                  },
+                  items: _meteringModeValues
+                      .map<DropdownMenuItem<int>>((String value) {
+                    return DropdownMenuItem<int>(
+                      value: _meteringModeValues.indexOf(value),
+                      child: Text(value),
+                    );
+                  }).toList(),
+                ),
+              ),
+              ListTile(
+                title: const Text('Auto Exposure/Gain Runs'),
+                subtitle: Slider(
+                  value: _autoExpGainTimes.toDouble(),
+                  min: 0,
+                  max: 10,
+                  divisions: 10,
+                  label: _autoExpGainTimes.toInt().toString(),
+                  onChanged: (double value) {
+                    setState(() {
+                      _autoExpGainTimes = value.toInt();
+                      _cameraSettingsChanged = true;
                     });
                   },
                 ),
@@ -250,26 +315,73 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   onChanged: (double value) {
                     setState(() {
                       _exposure = value;
+                      _cameraSettingsChanged = true;
                     });
                   },
                 ),
               ),
               ListTile(
-                title: const Text('Metering Mode'),
-                subtitle: DropdownButton<String>(
-                  value: _meteringMode,
-                  onChanged: (String? newValue) {
+                title: const Text('Shutter KP'),
+                subtitle: Slider(
+                  value: _shutterKp,
+                  min: 0.1,
+                  max: 0.5,
+                  divisions: 4,
+                  label: _shutterKp.toStringAsFixed(1),
+                  onChanged: (double value) {
                     setState(() {
-                      _meteringMode = newValue!;
+                      _shutterKp = value;
+                      _cameraSettingsChanged = true;
                     });
                   },
-                  items: _meteringModeValues
-                      .map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                ),
+              ),
+              ListTile(
+                title: const Text('Shutter Limit'),
+                subtitle: Slider(
+                  value: _shutterLimit.toDouble(),
+                  min: 4,
+                  max: 16383,
+                  divisions: 10,
+                  label: _shutterLimit.toStringAsFixed(0),
+                  onChanged: (double value) {
+                    setState(() {
+                      _shutterLimit = value.toInt();
+                      _cameraSettingsChanged = true;
+                    });
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Gain KP'),
+                subtitle: Slider(
+                  value: _gainKp,
+                  min: 1.0,
+                  max: 5.0,
+                  divisions: 4,
+                  label: _gainKp.toStringAsFixed(1),
+                  onChanged: (double value) {
+                    setState(() {
+                      _gainKp = value;
+                      _cameraSettingsChanged = true;
+                    });
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Gain Limit'),
+                subtitle: Slider(
+                  value: _gainLimit.toDouble(),
+                  min: 0,
+                  max: 248,
+                  divisions: 8,
+                  label: _gainLimit.toStringAsFixed(0),
+                  onChanged: (double value) {
+                    setState(() {
+                      _gainLimit = value.toInt();
+                      _cameraSettingsChanged = true;
+                    });
+                  },
                 ),
               ),
             ],

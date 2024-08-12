@@ -20,10 +20,8 @@ CAMERA_SETTINGS_FLAG = 0x0d
 -- and save to the local app_data table so the main loop can pick it up and print it
 function data_handler(data)
     if string.byte(data, 1) == START_STREAM_FLAG then
-        -- non-final chunk
         app_data.streaming = true
     elseif string.byte(data, 1) == STOP_STREAM_FLAG then
-        -- final chunk
         app_data.streaming = false
     elseif string.byte(data, 1) == CAMERA_SETTINGS_FLAG then
         -- quality and metering mode are indices into arrays of values

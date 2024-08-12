@@ -298,14 +298,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 10,
                   divisions: 10,
                   label: _autoExpGainTimes.toInt().toString(),
-                  onChanged: (value) {
-                    setState(() {
-                      _autoExpGainTimes = value.toInt();
-                    });
-                  },
+                  // live camera feed does exposure runs every 100ms
+                  // until the prior image is completely sent
+                  onChanged: null,
                   onChangeEnd: (value) {
                       _cameraSettingsChanged = true;
                   },
+
                 ),
               ),
               ListTile(

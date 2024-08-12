@@ -272,6 +272,22 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                 ),
               ),
               ListTile(
+                title: const Text('Auto Exposure/Gain Runs'),
+                subtitle: Slider(
+                  value: _autoExpGainTimes.toDouble(),
+                  min: 0,
+                  max: 10,
+                  divisions: 10,
+                  label: _autoExpGainTimes.toInt().toString(),
+                  // live camera feed does exposure runs every 100ms
+                  // until the prior image is completely sent
+                  onChanged: null,
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
+                  },
+                ),
+              ),
+              ListTile(
                 title: const Text('Metering Mode'),
                 subtitle: DropdownButton<int>(
                   value: _meteringModeIndex,
@@ -288,23 +304,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                       child: Text(value),
                     );
                   }).toList(),
-                ),
-              ),
-              ListTile(
-                title: const Text('Auto Exposure/Gain Runs'),
-                subtitle: Slider(
-                  value: _autoExpGainTimes.toDouble(),
-                  min: 0,
-                  max: 10,
-                  divisions: 10,
-                  label: _autoExpGainTimes.toInt().toString(),
-                  // live camera feed does exposure runs every 100ms
-                  // until the prior image is completely sent
-                  onChanged: null,
-                  onChangeEnd: (value) {
-                      _cameraSettingsChanged = true;
-                  },
-
                 ),
               ),
               ListTile(

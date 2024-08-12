@@ -261,11 +261,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: _qualityValues.length - 1,
                   divisions: _qualityValues.length - 1,
                   label: _qualityValues[_qualityIndex].toString(),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _qualityIndex = value.toInt();
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -296,11 +298,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 10,
                   divisions: 10,
                   label: _autoExpGainTimes.toInt().toString(),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _autoExpGainTimes = value.toInt();
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -312,11 +316,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 2,
                   divisions: 8,
                   label: _exposure.toString(),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _exposure = value;
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -328,11 +334,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 0.5,
                   divisions: 4,
                   label: _shutterKp.toStringAsFixed(1),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _shutterKp = value;
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -344,11 +352,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 16383,
                   divisions: 10,
                   label: _shutterLimit.toStringAsFixed(0),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _shutterLimit = value.toInt();
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -360,11 +370,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 5.0,
                   divisions: 4,
                   label: _gainKp.toStringAsFixed(1),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _gainKp = value;
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),
@@ -376,11 +388,13 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   max: 248,
                   divisions: 8,
                   label: _gainLimit.toStringAsFixed(0),
-                  onChanged: (double value) {
+                  onChanged: (value) {
                     setState(() {
                       _gainLimit = value.toInt();
-                      _cameraSettingsChanged = true;
                     });
+                  },
+                  onChangeEnd: (value) {
+                      _cameraSettingsChanged = true;
                   },
                 ),
               ),

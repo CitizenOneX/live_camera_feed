@@ -22,6 +22,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   static const startStreamFlag = 0x0a;
   static const stopStreamFlag = 0x0b;
   static const cameraSettingsFlag = 0x0d;
+  // Frame to Phone flags
+  static const nonFinalChunkFlag = 0x07;
+  static const finalChunkFlag = 0x08;
 
   // stream subscription to pull application data back from camera
   StreamSubscription<List<int>>? _dataResponseStream;
@@ -53,78 +56,55 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   }
 
   /// Request a stream of photos from the Frame and receive the data back, update an image to animate
-  @override
-  Future<void> runApplication() async {
+  Future<void> run() async {
     currentState = ApplicationState.running;
     if (mounted) setState(() {});
 
     try {
-      _dataResponseStream?.cancel();
-
-      // try to get the Frame into a known state by making sure there's no main loop running
-      frame!.sendBreakSignal();
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // clean up by deregistering any handler and deleting any prior script
-      await frame!.sendString('frame.bluetooth.receive_callback(nil);print(0)', awaitResponse: true);
-      await Future.delayed(const Duration(milliseconds: 500));
-      await frame!.sendString('frame.file.remove("frame_app.lua");print(0)', awaitResponse: true);
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // send our frame_app to the Frame
-      // It sends image data from the camera as fast as it can over bluetooth
-      await frame!.uploadScript('frame_app.lua', 'assets/frame_app.lua');
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // kick off the main application loop
-      await frame!.sendString('require("frame_app")', awaitResponse: true);
-
-      // -----------------------------------------------------------------------
-      // frame_app is installed on Frame and running, start our application loop
-      // -----------------------------------------------------------------------
-
       // the image data as a list of bytes that accumulates with each packet
       List<int> imageData = List.empty(growable: true);
 
-      // set up the data response handler for the photos
-      _dataResponseStream = frame!.dataResponse.listen((data) {
-        // non-final chunks have a first byte of 7
-        if (data[0] == 7) {
-          imageData += data.sublist(1);
-        }
-        // the last chunk has a first byte of 8 so stop after this
-        else if (data[0] == 8) {
-          _stopwatch.stop();
-          imageData += data.sublist(1);
+        // set up the data response handler for the photos
+        _dataResponseStream?.cancel();
+        _dataResponseStream = frame!.dataResponse.listen((data) {
 
-          try {
-            Image im = Image.memory(Uint8List.fromList(imageData), gaplessPlayback: true);
-
-            _elapsedMs = _stopwatch.elapsedMilliseconds;
-            _imageSize = imageData.length;
-            imageData.clear();
-            _log.info('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
-            _currentImage = im;
-            if (mounted) setState(() {});
-
-            // start the timer for the next image coming in
-            _stopwatch.reset();
-            _stopwatch.start();
-
-          } catch (e) {
-            _log.severe('Error converting bytes to image: $e');
-
-            currentState = ApplicationState.ready;
-            if (mounted) setState(() {});
+          // non-final chunks have a first byte of 7
+          if (data[0] == nonFinalChunkFlag) {
+            imageData += data.sublist(1);
           }
-        }
-        else if (data[0] == 0x0c) {
-          // ignore the battery level updates, they're handled by SimpleFrameApp already
-        }
-        else {
-          _log.severe('Unexpected initial byte: ${data[0]}');
-        }
-      });
+          // the last chunk has a first byte of 8 so stop after this
+          else if (data[0] == finalChunkFlag) {
+            _stopwatch.stop();
+            imageData += data.sublist(1);
+
+            try {
+              Image im = Image.memory(Uint8List.fromList(imageData), gaplessPlayback: true);
+
+              _elapsedMs = _stopwatch.elapsedMilliseconds;
+              _imageSize = imageData.length;
+              imageData.clear();
+              _log.info('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
+              _currentImage = im;
+              if (mounted) setState(() {});
+
+              // start the timer for the next image coming in
+              _stopwatch.reset();
+              _stopwatch.start();
+
+            } catch (e) {
+              _log.severe('Error converting bytes to image: $e');
+
+              currentState = ApplicationState.ready;
+              if (mounted) setState(() {});
+            }
+          }
+          else if (data[0] == 0x0c) {
+            // ignore the battery level updates, they're handled by SimpleFrameApp already
+          }
+          else {
+            _log.severe('Unexpected initial byte: ${data[0]}');
+          }
+        });
 
       // start the timer for the first image coming
       _stopwatch.reset();
@@ -142,7 +122,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
         }
 
         // yield so we're not running hot on the UI thread
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 250));
       }
 
       // ----------------------------------------------------------------------
@@ -152,14 +132,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       await frame!.sendData([stopStreamFlag]);
       _dataResponseStream!.cancel();
 
-      // send a break to stop the Lua app loop on Frame
-      await frame!.sendBreakSignal();
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // deregister the data handler
-      await frame!.sendString('frame.bluetooth.receive_callback(nil);print(0)', awaitResponse: true);
-      await Future.delayed(const Duration(milliseconds: 500));
-
     } catch (e) {
       _log.fine('Error executing application logic: $e');
     }
@@ -168,8 +140,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     if (mounted) setState(() {});
   }
 
-  @override
-  Future<void> interruptApplication() async {
+  Future<void> cancel() async {
     currentState = ApplicationState.stopping;
     if (mounted) setState(() {});
   }
@@ -205,31 +176,36 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
     switch (currentState) {
       case ApplicationState.disconnected:
-        pfb.add(TextButton(onPressed: scanOrReconnectFrame, child: const Text('Connect Frame')));
-        pfb.add(const TextButton(onPressed: null, child: Text('Live Feed')));
-        pfb.add(const TextButton(onPressed: null, child: Text('Finish')));
+        pfb.add(TextButton(onPressed: scanOrReconnectFrame, child: const Text('Connect')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Start')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Stop')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Disconnect')));
         break;
 
       case ApplicationState.initializing:
       case ApplicationState.scanning:
       case ApplicationState.connecting:
+      case ApplicationState.running:
       case ApplicationState.stopping:
       case ApplicationState.disconnecting:
-        pfb.add(const TextButton(onPressed: null, child: Text('Connect Frame')));
-        pfb.add(const TextButton(onPressed: null, child: Text('Live Feed')));
-        pfb.add(const TextButton(onPressed: null, child: Text('Finish')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Connect')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Start')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Stop')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Disconnect')));
+        break;
+
+      case ApplicationState.connected:
+        pfb.add(const TextButton(onPressed: null, child: Text('Connect')));
+        pfb.add(TextButton(onPressed: startApplication, child: const Text('Start')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Stop')));
+        pfb.add(TextButton(onPressed: disconnectFrame, child: const Text('Disconnect')));
         break;
 
       case ApplicationState.ready:
-        pfb.add(const TextButton(onPressed: null, child: Text('Connect Frame')));
-        pfb.add(TextButton(onPressed: runApplication, child: const Text('Live Feed')));
-        pfb.add(TextButton(onPressed: disconnectFrame, child: const Text('Finish')));
-        break;
-
-      case ApplicationState.running:
-        pfb.add(const TextButton(onPressed: null, child: Text('Connect Frame')));
-        pfb.add(TextButton(onPressed: interruptApplication, child: const Text('Stop Feed')));
-        pfb.add(const TextButton(onPressed: null, child: Text('Finish')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Connect')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Start')));
+        pfb.add(TextButton(onPressed: stopApplication, child: const Text('Stop')));
+        pfb.add(const TextButton(onPressed: null, child: Text('Disconnect')));
         break;
     }
 
@@ -415,6 +391,11 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
             if (_currentImage != null)  Text('Size: ${_imageSize>>10} kb, Elapsed: $_elapsedMs ms'),
           ],
         ),
+        floatingActionButton:
+          currentState == ApplicationState.ready ?
+            FloatingActionButton(onPressed: run, child: const Icon(Icons.video_camera_back)) :
+          currentState == ApplicationState.running ?
+          FloatingActionButton(onPressed: cancel, child: const Icon(Icons.cancel)) : null,
         persistentFooterButtons: pfb,
       ),
     );

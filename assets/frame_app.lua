@@ -24,11 +24,11 @@ function data_handler(data)
     elseif string.byte(data, 1) == STOP_STREAM_FLAG then
         app_data.streaming = false
     elseif string.byte(data, 1) == CAMERA_SETTINGS_FLAG then
-        -- quality and metering mode are indices into arrays of values
+        -- quality and metering mode are indices into arrays of values (0-based phoneside, 1-based in Lua)
         -- exposure maps from 0..255 to -2.0..+2.0
-        app_data.quality = quality_values[string.byte(data, 2)]
+        app_data.quality = quality_values[string.byte(data, 2) + 1]
         app_data.auto_exp_gain_times = string.byte(data, 3)
-        app_data.metering_mode = metering_values[string.byte(data, 4)]
+        app_data.metering_mode = metering_values[string.byte(data, 4) + 1]
         app_data.exposure = (string.byte(data, 5) - 128) / 64.0
         app_data.shutter_kp = string.byte(data, 6) / 10.0
         app_data.shutter_limit = string.byte(data, 7) << 8 | string.byte(data, 8)

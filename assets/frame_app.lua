@@ -2,9 +2,9 @@
 -- and wait for the main loop to pick it up for processing/drawing
 -- app_data contains all camera settings settable from the UI
 -- quality, exposure, metering mode, ...
-local app_data = { streaming = false, quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0}
-local quality_values = {10, 25, 50, 100}
-local metering_values = {'SPOT', 'CENTER_WEIGHTED', 'AVERAGE'}
+local app_data = { streaming = false, quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0 }
+local quality_values = { 10, 25, 50, 100 }
+local metering_values = { "SPOT", "CENTER_WEIGHTED", "AVERAGE" }
 
 -- Frame to phone flags
 BATTERY_LEVEL_FLAG = "\x0c"

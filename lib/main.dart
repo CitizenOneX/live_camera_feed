@@ -4,7 +4,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'camera.dart';
 import 'simple_frame_app.dart';
+import 'toggle.dart';
 
 void main() => runApp(const MainApp());
 
@@ -19,9 +21,8 @@ class MainApp extends StatefulWidget {
 
 class MainAppState extends State<MainApp> with SimpleFrameAppState {
   // Phone to Frame flags
-  static const startStreamFlag = 0x0a;
-  static const stopStreamFlag = 0x0b;
-  static const cameraSettingsFlag = 0x0d;
+  static const streamFlag = 0x0a;
+
   // Frame to Phone flags
   static const nonFinalChunkFlag = 0x07;
   static const finalChunkFlag = 0x08;
@@ -35,7 +36,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   double _exposure = 0.0; // -2.0 <= val <= 2.0
   int _meteringModeIndex = 0;
   final List<String> _meteringModeValues = ['SPOT', 'CENTER_WEIGHTED', 'AVERAGE'];
-  int _autoExpGainTimes = 0; // val >= 0; number of times auto exposure and gain algorithm will be run every 100ms
+  final int _autoExpGainTimes = 0; // val >= 0; number of times auto exposure and gain algorithm will be run every 100ms
   double _shutterKp = 0.1;  // val >= 0 (we offer 0.1 .. 0.5)
   int _shutterLimit = 6000; // 4 < val < 16383
   double _gainKp = 1.0;     // val >= 0 (we offer 1.0 .. 5.0)
@@ -112,14 +113,14 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       _stopwatch.start();
 
       // kick off the photo streaming
-      await frame!.sendDataRaw([0x01, startStreamFlag, 0, 0]);
+      await frame!.sendDataRaw(ToggleMsg.pack(streamFlag, true));
 
       // Main loop on our side
       while (currentState == ApplicationState.running) {
         // check for updated camera settings and send to Frame
         if (_cameraSettingsChanged) {
           _cameraSettingsChanged = false;
-          await frame!.sendDataRaw(makeSettingsPayload());
+          await frame!.sendDataRaw(CameraSettingsMsg.pack(_qualityIndex, _autoExpGainTimes, _meteringModeIndex, _exposure, _shutterKp, _shutterLimit, _gainKp, _gainLimit));
         }
 
         // yield so we're not running hot on the UI thread
@@ -127,7 +128,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       }
 
       // tell the frame to stop taking photos and sending
-      await frame!.sendDataRaw([0x01, stopStreamFlag, 0, 0]);
+      await frame!.sendDataRaw(ToggleMsg.pack(streamFlag, false));
       _dataResponseStream!.cancel();
 
     } catch (e) {
@@ -142,31 +143,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   Future<void> cancel() async {
     currentState = ApplicationState.stopping;
     if (mounted) setState(() {});
-  }
-
-  /// Corresponding parser in frame_app.lua data_handler()
-  List<int> makeSettingsPayload() {
-    // exposure is a double in the range -2.0 to 2.0, so map that to an unsigned byte 0..255
-    // by multiplying by 64, adding 128 and truncating
-    int intExp;
-    if (_exposure >= 2.0) {
-      intExp = 255;
-    }
-    else if (_exposure <= -2.0) {
-      intExp = 0;
-    }
-    else {
-      intExp = ((_exposure * 64) + 128).floor();
-    }
-
-    int intShutKp = (_shutterKp * 10).toInt();
-    int intShutLimMsb = _shutterLimit >> 8;
-    int intShutLimLsb = _shutterLimit & 0xFF;
-    int intGainKp = (_gainKp * 10).toInt();
-
-    // data byte 0x01, MSG_TYPE 0x0d, msg_length(Uint16), then 9 bytes of camera settings
-    return [0x01, cameraSettingsFlag, 0, 9, _qualityIndex, _autoExpGainTimes, _meteringModeIndex,
-            intExp, intShutKp, intShutLimMsb, intShutLimLsb, intGainKp, _gainLimit];
   }
 
   @override

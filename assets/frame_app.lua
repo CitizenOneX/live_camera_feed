@@ -6,18 +6,18 @@ NON_FINAL_CHUNK_MSG = 0x07
 FINAL_CHUNK_MSG = 0x08
 
 -- Phone to Frame flags
-START_STREAM_MSG = 0x0a
-STOP_STREAM_MSG = 0x0b
+STREAM_MSG = 0x0a
 CAMERA_SETTINGS_MSG = 0x0d
 
--- parse the start_stream message
-function parse_start_stream(data)
-    return true
-end
-
--- parse the stop_stream message
-function parse_stop_stream(data)
-    return true
+-- parse the stream message
+function parse_stream(data)
+    local msg = {}
+    if string.byte(data, 1) == 1 then
+        msg.streaming = true
+    else
+        msg.streaming = false
+    end
+    return msg
 end
 
 local quality_values = { 10, 25, 50, 100 }
@@ -25,22 +25,21 @@ local metering_values = { "SPOT", "CENTER_WEIGHTED", "AVERAGE" }
 
 -- parse the camera_settings message
 function parse_camera_settings(data)
-    local cs = {}
-    cs.quality = quality_values[string.byte(data, 1) + 1]
-    cs.auto_exp_gain_times = string.byte(data, 2)
-    cs.metering_mode = metering_values[string.byte(data, 3) + 1]
-    cs.exposure = (string.byte(data, 4) - 128) / 64.0
-    cs.shutter_kp = string.byte(data, 5) / 10.0
-    cs.shutter_limit = string.byte(data, 6) << 8 | string.byte(data, 7)
-    cs.gain_kp = string.byte(data, 8) / 10.0
-    cs.gain_limit = string.byte(data, 9)
-    return cs
+    local msg = {}
+    msg.quality = quality_values[string.byte(data, 1) + 1]
+    msg.auto_exp_gain_times = string.byte(data, 2)
+    msg.metering_mode = metering_values[string.byte(data, 3) + 1]
+    msg.exposure = (string.byte(data, 4) - 128) / 64.0
+    msg.shutter_kp = string.byte(data, 5) / 10.0
+    msg.shutter_limit = string.byte(data, 6) << 8 | string.byte(data, 7)
+    msg.gain_kp = string.byte(data, 8) / 10.0
+    msg.gain_limit = string.byte(data, 9)
+    return msg
 end
 
 -- register the message parsers so they are automatically called when matching data comes in
 data.parsers[CAMERA_SETTINGS_MSG] = parse_camera_settings
-data.parsers[START_STREAM_MSG] = parse_start_stream
-data.parsers[STOP_STREAM_MSG] = parse_stop_stream
+data.parsers[STREAM_MSG] = parse_stream
 
 
 function show_streaming()
@@ -61,7 +60,6 @@ function app_loop()
     local last_batt_update = 0
     local camera_settings = { quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0 }
     local streaming = false
-    local first_photo = true
     local finished_reading = true
     local finished_sending = true
     local image_data_table = {}
@@ -75,20 +73,20 @@ function app_loop()
                 camera_settings = data.app_data[CAMERA_SETTINGS_MSG]
                 data.app_data[CAMERA_SETTINGS_MSG] = nil
             end
-            if data.app_data[START_STREAM_MSG] ~= nil then
-                streaming = true
-            end
-            if data.app_data[STOP_STREAM_MSG] ~= nil then
-                streaming = false
+            if data.app_data[STREAM_MSG] ~= nil then
+                streaming = data.app_data[STREAM_MSG].streaming
+                data.app_data[STREAM_MSG] = nil
+
+                if streaming then
+                    show_streaming()
+                else
+                    clear_display()
+                end
             end
         end
 
         -- only stream images while streaming is set
         if streaming then
-            if first_photo then
-                show_streaming()
-                first_photo = false
-            end
             rc, err = pcall(
                 function()
                     if finished_reading and finished_sending then
@@ -146,7 +144,6 @@ function app_loop()
             end
         else
             -- TODO might need to clean up if we were part-way through capture/read or sending over bluetooth when app_data.streaming was checked and was false
-            first_photo = true
             frame.sleep(0.1)
         end
 

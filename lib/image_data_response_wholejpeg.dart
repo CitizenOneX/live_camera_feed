@@ -14,7 +14,6 @@ Stream<Uint8List> imageDataResponseWholeJpeg(Stream<List<int>> dataResponse) {
   late StreamController<Uint8List> controller;
   // the image data as a list of bytes that accumulates with each packet
   List<int> imageData = List.empty(growable: true);
-  int rawLength = 0;
   int rawOffset = 0;
 
   controller = StreamController<Uint8List>(
@@ -33,7 +32,7 @@ Stream<Uint8List> imageDataResponseWholeJpeg(Stream<List<int>> dataResponse) {
           controller.add(Uint8List.fromList(imageData));
           imageData.clear();
         }
-        _log.fine('Chunk size: ${data.length-1}, rawOffset: $rawOffset of $rawLength');
+        _log.fine('Chunk size: ${data.length-1}, rawOffset: $rawOffset');
       }, onDone: controller.close, onError: controller.addError);
     },
     //onCancel: controller.close,

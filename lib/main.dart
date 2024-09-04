@@ -100,12 +100,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
               if (mounted) setState(() {});
             }
           }
-          else if (data[0] == 0x0c) {
-            // ignore the battery level updates, they're handled by SimpleFrameApp already
-          }
-          else {
-            _log.severe('Unexpected initial byte: ${data[0]}');
-          }
         });
 
       // start the timer for the first image coming

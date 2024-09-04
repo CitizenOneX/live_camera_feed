@@ -60,32 +60,32 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     if (mounted) setState(() {});
 
     try {
-        // set up the data response handler for the photos
-        _imageDataResponseStream?.cancel();
-        _imageDataResponseStream = imageDataResponseWholeJpeg(frame!.dataResponse).listen((imageData) {
-          // received a whole-image Uint8List with jpeg header and footer included
-          _stopwatch.stop();
+      // set up the data response handler for the photos
+      _imageDataResponseStream?.cancel();
+      _imageDataResponseStream = imageDataResponseWholeJpeg(frame!.dataResponse).listen((imageData) {
+        // received a whole-image Uint8List with jpeg header and footer included
+        _stopwatch.stop();
 
-          try {
-            Image im = Image.memory(imageData, gaplessPlayback: true);
+        try {
+          Image im = Image.memory(imageData, gaplessPlayback: true);
 
-            _elapsedMs = _stopwatch.elapsedMilliseconds;
-            _imageSize = imageData.length;
-            _log.fine('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
-            _currentImage = im;
-            if (mounted) setState(() {});
+          _elapsedMs = _stopwatch.elapsedMilliseconds;
+          _imageSize = imageData.length;
+          _log.fine('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
+          _currentImage = im;
+          if (mounted) setState(() {});
 
-            // start the timer for the next image coming in
-            _stopwatch.reset();
-            _stopwatch.start();
+          // start the timer for the next image coming in
+          _stopwatch.reset();
+          _stopwatch.start();
 
-          } catch (e) {
-            _log.severe('Error converting bytes to image: $e');
+        } catch (e) {
+          _log.severe('Error converting bytes to image: $e');
 
-            currentState = ApplicationState.ready;
-            if (mounted) setState(() {});
-          }
-        });
+          currentState = ApplicationState.ready;
+          if (mounted) setState(() {});
+        }
+      });
 
       // start the timer for the first image coming
       _stopwatch.reset();

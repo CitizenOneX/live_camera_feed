@@ -94,6 +94,8 @@ function app_loop()
                         finished_reading = false
                         finished_sending = false
                         frame.camera.capture { quality_factor = camera_settings.quality }
+                        -- TODO can this value be reduced?
+                        frame.sleep(0.1)
 
                     elseif (not finished_sending) and (image_data_table[1] ~= nil) then
                         -- send all of the data from the previous image

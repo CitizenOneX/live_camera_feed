@@ -61,7 +61,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
     try {
       // set up the data response handler for the photos
-      _imageDataResponseStream?.cancel();
       _imageDataResponseStream = imageDataResponseWholeJpeg(frame!.dataResponse).listen((imageData) {
         // received a whole-image Uint8List with jpeg header and footer included
         _stopwatch.stop();
@@ -111,7 +110,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       _imageDataResponseStream!.cancel();
 
     } catch (e) {
-      _log.fine('Error executing application logic: $e');
+      _log.severe('Error executing application logic: $e');
+      // unsubscribe from the image stream now (to also release the underlying data stream subscription)
+      _imageDataResponseStream?.cancel();
     }
 
     currentState = ApplicationState.ready;

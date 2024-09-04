@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'camera.dart';
+import 'image_data_response_wholejpeg.dart';
 import 'simple_frame_app.dart';
 import 'toggle.dart';
 
@@ -23,12 +24,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   // Phone to Frame flags
   static const streamFlag = 0x0a;
 
-  // Frame to Phone flags
-  static const nonFinalChunkFlag = 0x07;
-  static const finalChunkFlag = 0x08;
-
   // stream subscription to pull application data back from camera
-  StreamSubscription<List<int>>? _dataResponseStream;
+  StreamSubscription<Uint8List>? _imageDataResponseStream;
 
   // camera settings
   int _qualityIndex = 2;
@@ -63,42 +60,30 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     if (mounted) setState(() {});
 
     try {
-      // the image data as a list of bytes that accumulates with each packet
-      List<int> imageData = List.empty(growable: true);
-
         // set up the data response handler for the photos
-        _dataResponseStream?.cancel();
-        _dataResponseStream = frame!.dataResponse.listen((data) {
+        _imageDataResponseStream?.cancel();
+        _imageDataResponseStream = imageDataResponseWholeJpeg(frame!.dataResponse).listen((imageData) {
+          // received a whole-image Uint8List with jpeg header and footer included
+          _stopwatch.stop();
 
-          // non-final chunks have a first byte of 7
-          if (data[0] == nonFinalChunkFlag) {
-            imageData += data.sublist(1);
-          }
-          // the last chunk has a first byte of 8 so stop after this
-          else if (data[0] == finalChunkFlag) {
-            _stopwatch.stop();
-            imageData += data.sublist(1);
+          try {
+            Image im = Image.memory(imageData, gaplessPlayback: true);
 
-            try {
-              Image im = Image.memory(Uint8List.fromList(imageData), gaplessPlayback: true);
+            _elapsedMs = _stopwatch.elapsedMilliseconds;
+            _imageSize = imageData.length;
+            _log.fine('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
+            _currentImage = im;
+            if (mounted) setState(() {});
 
-              _elapsedMs = _stopwatch.elapsedMilliseconds;
-              _imageSize = imageData.length;
-              imageData.clear();
-              _log.fine('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
-              _currentImage = im;
-              if (mounted) setState(() {});
+            // start the timer for the next image coming in
+            _stopwatch.reset();
+            _stopwatch.start();
 
-              // start the timer for the next image coming in
-              _stopwatch.reset();
-              _stopwatch.start();
+          } catch (e) {
+            _log.severe('Error converting bytes to image: $e');
 
-            } catch (e) {
-              _log.severe('Error converting bytes to image: $e');
-
-              currentState = ApplicationState.ready;
-              if (mounted) setState(() {});
-            }
+            currentState = ApplicationState.ready;
+            if (mounted) setState(() {});
           }
         });
 
@@ -123,7 +108,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
       // tell the frame to stop taking photos and sending
       await frame!.sendDataRaw(ToggleMsg.pack(streamFlag, false));
-      _dataResponseStream!.cancel();
+      _imageDataResponseStream!.cancel();
 
     } catch (e) {
       _log.fine('Error executing application logic: $e');

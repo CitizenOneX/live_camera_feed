@@ -1,5 +1,5 @@
-local data = require('data')
-local battery = require('battery')
+local data = require('data.min')
+local battery = require('battery.min')
 
 -- Frame to phone flags
 NON_FINAL_CHUNK_MSG = 0x07

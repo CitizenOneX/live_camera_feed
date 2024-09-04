@@ -1,41 +1,47 @@
--- we store the data from the host quickly from the data handler interrupt
--- and wait for the main loop to pick it up for processing/drawing
--- app_data contains all camera settings settable from the UI
--- quality, exposure, metering mode, ...
-local app_data = { streaming = false, quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0 }
+local data = require('data')
+local battery = require('battery')
+
+-- Frame to phone flags
+NON_FINAL_CHUNK_MSG = 0x07
+FINAL_CHUNK_MSG = 0x08
+
+-- Phone to Frame flags
+START_STREAM_MSG = 0x0a
+STOP_STREAM_MSG = 0x0b
+CAMERA_SETTINGS_MSG = 0x0d
+
+-- parse the start_stream message
+function parse_start_stream(data)
+    return true
+end
+
+-- parse the stop_stream message
+function parse_stop_stream(data)
+    return true
+end
+
 local quality_values = { 10, 25, 50, 100 }
 local metering_values = { "SPOT", "CENTER_WEIGHTED", "AVERAGE" }
 
--- Frame to phone flags
-BATTERY_LEVEL_FLAG = "\x0c"
-NON_FINAL_CHUNK_FLAG = "\x07"
-FINAL_CHUNK_FLAG = "\x08"
-
--- Phone to Frame flags
-START_STREAM_FLAG = 0x0a
-STOP_STREAM_FLAG = 0x0b
-CAMERA_SETTINGS_FLAG = 0x0d
-
--- every time byte data arrives just extract the data payload from the message
--- and save to the local app_data table so the main loop can pick it up and print it
-function data_handler(data)
-    if string.byte(data, 1) == START_STREAM_FLAG then
-        app_data.streaming = true
-    elseif string.byte(data, 1) == STOP_STREAM_FLAG then
-        app_data.streaming = false
-    elseif string.byte(data, 1) == CAMERA_SETTINGS_FLAG then
-        -- quality and metering mode are indices into arrays of values (0-based phoneside, 1-based in Lua)
-        -- exposure maps from 0..255 to -2.0..+2.0
-        app_data.quality = quality_values[string.byte(data, 2) + 1]
-        app_data.auto_exp_gain_times = string.byte(data, 3)
-        app_data.metering_mode = metering_values[string.byte(data, 4) + 1]
-        app_data.exposure = (string.byte(data, 5) - 128) / 64.0
-        app_data.shutter_kp = string.byte(data, 6) / 10.0
-        app_data.shutter_limit = string.byte(data, 7) << 8 | string.byte(data, 8)
-        app_data.gain_kp = string.byte(data, 9) / 10.0
-        app_data.gain_limit = string.byte(data, 10)
-    end
+-- parse the camera_settings message
+function parse_camera_settings(data)
+    local cs = {}
+    cs.quality = quality_values[string.byte(data, 1) + 1]
+    cs.auto_exp_gain_times = string.byte(data, 2)
+    cs.metering_mode = metering_values[string.byte(data, 3) + 1]
+    cs.exposure = (string.byte(data, 4) - 128) / 64.0
+    cs.shutter_kp = string.byte(data, 5) / 10.0
+    cs.shutter_limit = string.byte(data, 6) << 8 | string.byte(data, 7)
+    cs.gain_kp = string.byte(data, 8) / 10.0
+    cs.gain_limit = string.byte(data, 9)
+    return cs
 end
+
+-- register the message parsers so they are automatically called when matching data comes in
+data.parsers[CAMERA_SETTINGS_MSG] = parse_camera_settings
+data.parsers[START_STREAM_MSG] = parse_start_stream
+data.parsers[STOP_STREAM_MSG] = parse_stop_stream
+
 
 function show_streaming()
     frame.display.text("Streaming", 1, 1)
@@ -49,29 +55,37 @@ function clear_display()
     frame.sleep(0.04)
 end
 
-function send_batt_if_elapsed(prev, interval)
-    local t = frame.time.utc()
-    if ((prev == 0) or ((t - prev) > interval)) then
-        pcall(frame.bluetooth.send, BATTERY_LEVEL_FLAG .. string.char(math.floor(frame.battery_level())))
-        return t
-    else
-        return prev
-    end
-end
-
 -- Main app loop
 function app_loop()
     local max_payload = frame.bluetooth.max_length() - 4
     local last_batt_update = 0
+    local camera_settings = { quality = 50, auto_exp_gain_times = 0, metering_mode = "SPOT", exposure = 0, shutter_kp = 0.1, shutter_limit = 6000, gain_kp = 1.0, gain_limit = 248.0 }
+    local streaming = false
     local first_photo = true
     local finished_reading = true
     local finished_sending = true
     local image_data_table = {}
 
     while true do
+		-- process any raw data items, if ready (parse into take_photo, then clear data.app_data_block)
+		local items_ready = data.process_raw_items()
+
+        if items_ready > 0 then
+            if data.app_data[CAMERA_SETTINGS_MSG] ~= nil then
+                camera_settings = data.app_data[CAMERA_SETTINGS_MSG]
+                data.app_data[CAMERA_SETTINGS_MSG] = nil
+            end
+            if data.app_data[START_STREAM_MSG] ~= nil then
+                streaming = true
+            end
+            if data.app_data[STOP_STREAM_MSG] ~= nil then
+                streaming = false
+            end
+        end
+
         -- only stream images while streaming is set
-        if (app_data.streaming) then
-            if (first_photo) then
+        if streaming then
+            if first_photo then
                 show_streaming()
                 first_photo = false
             end
@@ -81,17 +95,17 @@ function app_loop()
                         -- take a new photo
                         finished_reading = false
                         finished_sending = false
-                        frame.camera.capture { quality_factor = app_data.quality }
+                        frame.camera.capture { quality_factor = camera_settings.quality }
 
                     elseif (not finished_sending) and (image_data_table[1] ~= nil) then
                         -- send all of the data from the previous image
                         local i = 1
                         for k, v in pairs(image_data_table) do
-                            pcall(frame.bluetooth.send, NON_FINAL_CHUNK_FLAG .. v)
+                            pcall(frame.bluetooth.send, string.char(NON_FINAL_CHUNK_MSG) .. v)
 
                             -- need to slow down the bluetooth sends to about 1 per 12.5ms, so every 100ms run the autoexposure algorithm
                             if (i % 8 == 0) then -- roughly once per 100ms
-                                frame.camera.auto { metering = app_data.metering_mode, exposure = app_data.exposure, shutter_kp = app_data.shutter_kp, shutter_limit = app_data.shutter_limit, gain_kp = app_data.gain_kp, gain_limit = app_data.gain_limit }
+                                frame.camera.auto { metering = camera_settings.metering_mode, exposure = camera_settings.exposure, shutter_kp = camera_settings.shutter_kp, shutter_limit = camera_settings.shutter_limit, gain_kp = camera_settings.gain_kp, gain_limit = camera_settings.gain_limit }
                                 frame.sleep(0.0075) -- autoexp algo can take as little as 5ms so top it up here to 12.5
                             else
                                 frame.sleep(0.0125) -- can't seem to be any faster than 12.5ms without clobbering previous bluetooth.send()s
@@ -99,7 +113,7 @@ function app_loop()
 
                             i = i + 1
                         end
-                        pcall(frame.bluetooth.send, FINAL_CHUNK_FLAG)
+                        pcall(frame.bluetooth.send, string.char(FINAL_CHUNK_MSG))
 
 
                         finished_sending = true
@@ -136,13 +150,10 @@ function app_loop()
             frame.sleep(0.1)
         end
 
-        -- periodic battery level updates, 30s for a photo streaming app
-        last_batt_update = send_batt_if_elapsed(last_batt_update, 30)
+        -- periodic battery level updates, 60s for a photo streaming app
+        last_batt_update = battery.send_batt_if_elapsed(last_batt_update, 60)
     end
 end
-
--- register the handler as a callback for all data sent from the host
-frame.bluetooth.receive_callback(data_handler)
 
 -- run the main app loop
 app_loop()

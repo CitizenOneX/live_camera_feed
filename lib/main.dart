@@ -112,14 +112,14 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       _stopwatch.start();
 
       // kick off the photo streaming
-      await frame!.sendData([startStreamFlag]);
+      await frame!.sendDataRaw([0x01, startStreamFlag, 0, 0]);
 
       // Main loop on our side
       while (currentState == ApplicationState.running) {
         // check for updated camera settings and send to Frame
         if (_cameraSettingsChanged) {
           _cameraSettingsChanged = false;
-          await frame!.sendData(makeSettingsPayload());
+          await frame!.sendDataRaw(makeSettingsPayload());
         }
 
         // yield so we're not running hot on the UI thread
@@ -127,7 +127,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
       }
 
       // tell the frame to stop taking photos and sending
-      await frame!.sendData([stopStreamFlag]);
+      await frame!.sendDataRaw([0x01, stopStreamFlag, 0, 0]);
       _dataResponseStream!.cancel();
 
     } catch (e) {
@@ -164,7 +164,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     int intShutLimLsb = _shutterLimit & 0xFF;
     int intGainKp = (_gainKp * 10).toInt();
 
-    return [cameraSettingsFlag, _qualityIndex, _autoExpGainTimes, _meteringModeIndex,
+    // data byte 0x01, MSG_TYPE 0x0d, msg_length(Uint16), then 9 bytes of camera settings
+    return [0x01, cameraSettingsFlag, 0, 9, _qualityIndex, _autoExpGainTimes, _meteringModeIndex,
             intExp, intShutKp, intShutLimMsb, intShutLimLsb, intGainKp, _gainLimit];
   }
 

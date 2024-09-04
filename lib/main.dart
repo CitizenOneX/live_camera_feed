@@ -85,7 +85,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
               _elapsedMs = _stopwatch.elapsedMilliseconds;
               _imageSize = imageData.length;
               imageData.clear();
-              _log.info('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
+              _log.fine('Image file size in bytes: $_imageSize, elapsedMs: $_elapsedMs');
               _currentImage = im;
               if (mounted) setState(() {});
 

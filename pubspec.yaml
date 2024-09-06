@@ -22,4 +22,5 @@ flutter:
   assets:
     - assets/battery.min.lua
     - assets/data.min.lua
+    - assets/camera.min.lua
     - assets/frame_app.min.lua

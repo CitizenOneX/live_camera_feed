@@ -91,7 +91,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
           meta.size = imageData.length;
           meta.elapsedTimeMs = _stopwatch.elapsedMilliseconds;
 
-          _log.fine('Image file size in bytes: ${imageData.length}, elapsedMs: ${_stopwatch.elapsedMilliseconds}');
+          _log.info(() => 'Image file size in bytes: ${imageData.length}, elapsedMs: ${_stopwatch.elapsedMilliseconds}, ${((imageData.length / 1024.0) / (_stopwatch.elapsedMilliseconds / 1000.0)).toStringAsFixed(2)} kB/s');
 
           setState(() {
             _image = im;

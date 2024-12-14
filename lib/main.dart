@@ -28,9 +28,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
   ImageMetadata? _imageMeta;
 
   MainAppState() {
-    Logger.root.level = Level.FINE;
+    Logger.root.level = Level.INFO;
     Logger.root.onRecord.listen((record) {
-      debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+      debugPrint('${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
     });
   }
 
@@ -48,7 +48,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
     await frame!.sendMessage(
       TxPlainText(
         msgCode: 0x0a,
-        text: '2-Tap: start or stop camera stream'
+        text: '2-Tap: start or stop stream'
       )
     );
   }

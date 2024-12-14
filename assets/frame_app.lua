@@ -53,7 +53,6 @@ end
 
 -- Main app loop
 function app_loop()
-	print('starting frame_app')
 	clear_display()
     local last_batt_update = 0
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -124,21 +123,25 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
           actions: [getBatteryWidget()]
         ),
         drawer: getCameraDrawer(),
+        onDrawerChanged: (isOpened) {
+          if (isOpened) {
+            // if the user opens the camera settings, stop streaming
+            _processing = false;
+          }
+          else {
+            // if the user closes the camera settings, send the updated settings to Frame
+            sendExposureSettings();
+          }
+        },
         body: Column(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  Transform(
-                    alignment: Alignment.center,
-                    // images are rotated 90 degrees clockwise from the Frame
-                    // so reverse that for display
-                    transform: Matrix4.rotationZ(-pi*0.5),
-                    child: _image,
-                  ),
+                  _image ?? Container(),
                   const Divider(),
-                  if (_imageMeta != null) _imageMeta!,
+                  if (_imageMeta != null) ImageMetadataWidget(meta: _imageMeta!),
                 ],
               )
             ),

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:simple_frame_app/frame_vision_app.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
-import 'package:simple_frame_app/tx/plain_text.dart';
+import 'package:frame_msg/tx/plain_text.dart';
 
 void main() => runApp(const MainApp());
 
@@ -44,12 +44,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
   @override
   Future<void> onRun() async {
     // initial message to display when running
-    await frame!.sendMessage(
-      TxPlainText(
-        msgCode: 0x0a,
-        text: '2-Tap: start or stop stream'
-      )
-    );
+    final text = TxPlainText(msgCode: 0x0a, text: '2-Tap: start or stop stream');
+
+    await frame!.sendMessage(text.msgCode, text.pack());
   }
 
   @override

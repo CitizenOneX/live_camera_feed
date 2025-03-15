@@ -180,10 +180,10 @@ packages:
     dependency: transitive
     description:
       name: frame_ble
-      sha256: "4beafeec11c77b005ef40a8eae2d22f17a6665c71b4fd698c222b5125865bd4f"
+      sha256: "28ce9f6ae28b190b856867c4dd90df4e87a44c9157a3ff991b5a00dc25b8e533"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "1.0.1"
   frame_msg:
     dependency: "direct main"
     description:
@@ -308,10 +308,10 @@ packages:
     dependency: "direct main"
     description:
       name: simple_frame_app
-      sha256: a3098fe90378632910ba3622443c080b5b8395c2988aedd69c499adf65d170d9
+      sha256: "9a72497fd434fda2aad62cd685259d1869906d2d36d24087bf96d0c09e7831b6"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.1"
+    version: "6.0.2"
   sky_engine:
     dependency: transitive
     description: flutter

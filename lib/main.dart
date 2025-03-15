@@ -176,6 +176,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
 
 class AutoExpResultWidget extends StatelessWidget {
   final AutoExpResult result;
+  final TextStyle dataStyle = const TextStyle(fontSize: 10, fontFamily: 'helvetica');
 
   const AutoExpResultWidget({super.key, required this.result});
 
@@ -197,22 +198,22 @@ class AutoExpResultWidget extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Error: ${result.error.toStringAsFixed(2)}'),
-                  Text('RGain: ${result.redGain.toStringAsFixed(2)}'),
+                  Text('Error: ${result.error.toStringAsFixed(2)}', style: dataStyle),
+                  Text('RGain: ${result.redGain.toStringAsFixed(2)}', style: dataStyle),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Shutter: ${result.shutter.toInt()}'),
-                  Text('GGain: ${result.greenGain.toStringAsFixed(2)}'),
+                  Text('Shutter: ${result.shutter.toInt()}', style: dataStyle),
+                  Text('GGain: ${result.greenGain.toStringAsFixed(2)}', style: dataStyle),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Analog Gain: ${result.analogGain.toInt()}'),
-                  Text('BGain: ${result.blueGain.toStringAsFixed(2)}'),
+                  Text('Analog Gain: ${result.analogGain.toInt()}', style: dataStyle),
+                  Text('BGain: ${result.blueGain.toStringAsFixed(2)}', style: dataStyle),
                 ],
               ),
             ],
@@ -228,12 +229,14 @@ class AutoExpResultWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                          'CW Average: ${result.brightness.centerWeightedAverage.toStringAsFixed(2)}'),
+                          'CW Average: ${result.brightness.centerWeightedAverage.toStringAsFixed(2)}',
+                          style: dataStyle),
                       Text(
                           'Matrix: [${result.brightness.matrix.r.toStringAsFixed(2)},'
                           '${result.brightness.matrix.g.toStringAsFixed(2)},'
                           '${result.brightness.matrix.b.toStringAsFixed(2)},'
-                          '${result.brightness.matrix.average.toStringAsFixed(2)}]'),
+                          '${result.brightness.matrix.average.toStringAsFixed(2)}]',
+                          style: dataStyle),
                     ],
                   ),
                   const SizedBox(width: 16), // Add spacing between columns
@@ -241,12 +244,15 @@ class AutoExpResultWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                          'Scene: ${result.brightness.scene.toStringAsFixed(2)}'),
+                          'Scene: ${result.brightness.scene.toStringAsFixed(2)}',
+                          style: dataStyle),
                       Text(
                           'Spot: [${result.brightness.spot.r.toStringAsFixed(2)},'
                           '${result.brightness.spot.g.toStringAsFixed(2)},'
                           '${result.brightness.spot.b.toStringAsFixed(2)},'
-                          '${result.brightness.spot.average.toStringAsFixed(2)}]'),
+                          '${result.brightness.spot.average.toStringAsFixed(2)}]',
+                          style: dataStyle)
+                          ,
                     ],
                   ),
                 ],

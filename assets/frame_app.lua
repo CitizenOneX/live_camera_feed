@@ -20,6 +20,7 @@ data.parsers[TAP_SUBS_MSG] = code.parse_code
 
 -- Frame to Phone flags
 TAP_MSG = 0x09
+AUTO_EXP_MSG = 0x12
 
 function handle_tap()
 	rc, err = pcall(frame.bluetooth.send, string.char(TAP_MSG))
@@ -129,7 +130,9 @@ function app_loop()
 				last_batt_update = battery.send_batt_if_elapsed(last_batt_update, 120)
 
 				if camera.is_auto_exp then
-					camera.run_auto_exposure()
+					autoexp_result = camera.run_auto_exposure()
+					-- send the current auto exposure result back to the phone
+					camera.send_autoexp_result(autoexp_result)
 				end
 
 				frame.sleep(0.1)

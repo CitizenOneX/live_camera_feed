@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:frame_msg/rx/auto_exp_result.dart';
 import 'package:logging/logging.dart';
 import 'package:simple_frame_app/frame_vision_app.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
@@ -26,6 +27,11 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
   Image? _image;
   ImageMetadata? _imageMeta;
 
+  // auto exposure result stream
+  final RxAutoExpResult _rxAutoExpResult = RxAutoExpResult();
+  StreamSubscription<AutoExpResult>? _autoExpResultSubs;
+  AutoExpResult? _autoExpResult;
+
   MainAppState() {
     Logger.root.level = Level.INFO;
     Logger.root.onRecord.listen((record) {
@@ -43,6 +49,17 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
 
   @override
   Future<void> onRun() async {
+    // set up receive handler for auto exposure results stream
+    // TODO put the values into a state variable
+    _autoExpResultSubs?.cancel();
+    _autoExpResultSubs = _rxAutoExpResult.attach(frame!.dataResponse).listen((autoExpResult) {
+      // update the UI with the latest auto exposure result
+      setState(() {
+        _autoExpResult = autoExpResult;
+      });
+      _log.fine('auto exposure result: $autoExpResult');
+    },);
+
     // initial message to display when running
     final text = TxPlainText(msgCode: 0x0a, text: '2-Tap: start or stop stream');
 
@@ -51,6 +68,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
 
   @override
   Future<void> onCancel() async {
+    // cancel the auto exposure result stream
+    _autoExpResultSubs?.cancel();
+
     // no app-specific cleanup required here
   }
 
@@ -136,6 +156,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
+                  if (_autoExpResult != null) AutoExpResultWidget(result: _autoExpResult!),
+                  const Divider(),
                   _image ?? Container(),
                   const Divider(),
                   if (_imageMeta != null) ImageMetadataWidget(meta: _imageMeta!),
@@ -147,6 +169,91 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
         ),
         floatingActionButton: getFloatingActionButtonWidget(const Icon(Icons.camera_alt), const Icon(Icons.cancel)),
         persistentFooterButtons: getFooterButtonsWidget(),
+      ),
+    );
+  }
+}
+
+class AutoExpResultWidget extends StatelessWidget {
+  final AutoExpResult result;
+
+  const AutoExpResultWidget({super.key, required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(5.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Error: ${result.error.toStringAsFixed(2)}'),
+                  Text('RGain: ${result.redGain.toStringAsFixed(2)}'),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Shutter: ${result.shutter.toInt()}'),
+                  Text('GGain: ${result.greenGain.toStringAsFixed(2)}'),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Analog Gain: ${result.analogGain.toInt()}'),
+                  Text('BGain: ${result.blueGain.toStringAsFixed(2)}'),
+                ],
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'CW Average: ${result.brightness.centerWeightedAverage.toStringAsFixed(2)}'),
+                      Text(
+                          'Matrix: [${result.brightness.matrix.r.toStringAsFixed(2)},'
+                          '${result.brightness.matrix.g.toStringAsFixed(2)},'
+                          '${result.brightness.matrix.b.toStringAsFixed(2)},'
+                          '${result.brightness.matrix.average.toStringAsFixed(2)}]'),
+                    ],
+                  ),
+                  const SizedBox(width: 16), // Add spacing between columns
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'Scene: ${result.brightness.scene.toStringAsFixed(2)}'),
+                      Text(
+                          'Spot: [${result.brightness.spot.r.toStringAsFixed(2)},'
+                          '${result.brightness.spot.g.toStringAsFixed(2)},'
+                          '${result.brightness.spot.b.toStringAsFixed(2)},'
+                          '${result.brightness.spot.average.toStringAsFixed(2)}]'),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

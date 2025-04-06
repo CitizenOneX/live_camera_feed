@@ -61,9 +61,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState, FrameVisionA
     },);
 
     // initial message to display when running
-    final text = TxPlainText(msgCode: 0x0a, text: '2-Tap: start or stop stream');
+    final text = TxPlainText(text: '2-Tap: start or stop stream');
 
-    await frame!.sendMessage(text.msgCode, text.pack());
+    await frame!.sendMessage(0x0a, text.pack());
   }
 
   @override
